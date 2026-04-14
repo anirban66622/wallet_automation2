@@ -1,57 +1,69 @@
 (function() {
+    // 1. Cleanup: Remove any existing panel to avoid duplicates
+    const oldPanel = document.getElementById('wallet-auto-panel');
+    if (oldPanel) oldPanel.remove();
+
     let running = false;
     let interval;
-    let targetAmount = 100;
 
-    // Create UI panel
+    // 2. Create the UI Panel
     const panel = document.createElement('div');
-    panel.style.cssText = 'position:fixed;top:100px;right:10px;z-index:9999;background:#000;color:#fff;padding:10px;border-radius:10px;font-size:14px;border:1px solid #444;';
+    panel.id = 'wallet-auto-panel';
+    panel.style.cssText = 'position:fixed;top:120px;right:10px;z-index:99999;background:#1a1a1a;color:#fff;padding:15px;border-radius:12px;font-family:sans-serif;border:2px solid #fac10c;box-shadow:0 10px 20px rgba(0,0,0,0.4);';
     
     panel.innerHTML = `
-        <div style="margin-bottom:8px;">Target: ₹<input id="amt" type="number" value="100" style="width:60px;background:#222;color:#fff;border:1px solid #555;"></div>
-        <button id="start" style="background:green;color:white;cursor:pointer;">Start</button>
-        <button id="stop" style="background:red;color:white;cursor:pointer;">Stop</button>
+        <div style="font-weight:bold;margin-bottom:10px;color:#fac10c;border-bottom:1px solid #333;padding-bottom:5px;">Automation Tool</div>
+        <div style="margin-bottom:12px;">Target: ₹<input id="targetAmt" type="number" value="214" style="width:70px;background:#333;color:#fff;border:1px solid #555;padding:4px;border-radius:4px;"></div>
+        <button id="startAuto" style="background:#2ecc71;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;font-weight:bold;width:100%;margin-bottom:5px;">START</button>
+        <button id="stopAuto" style="background:#e74c3c;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;font-weight:bold;width:100%;">STOP</button>
     `;
-
     document.body.appendChild(panel);
 
-    // Start Logic
-    document.getElementById("start").onclick = () => {
-        targetAmount = document.getElementById("amt").value;
+    // 3. Automation Logic
+    const startBtn = document.getElementById("startAuto");
+    const stopBtn = document.getElementById("stopAuto");
+
+    startBtn.onclick = () => {
+        const goal = document.getElementById("targetAmt").value;
         running = true;
-        console.log("Automation Started. Target:", targetAmount);
+        startBtn.innerText = "RUNNING...";
+        startBtn.style.opacity = "0.7";
 
         interval = setInterval(() => {
             if (!running) return;
 
-            // Search for elements that contain the price
-            // I've updated this to look for common price patterns
-            let elements = document.querySelectorAll('div, span, p, b');
+            // Target the specific .amount class found in your inspection
+            const priceElements = document.querySelectorAll('.amount');
 
-            elements.forEach(el => {
-                // Get text, remove currency symbols and commas
-                let text = el.innerText.replace(/[^\d]/g, '');
+            priceElements.forEach(el => {
+                // Clean the text to get only numbers
+                let currentVal = el.innerText.replace(/[^\d]/g, '');
 
-                if (text === targetAmount && el.childNodes.length === 1) {
-                    el.style.background = "yellow";
-                    el.style.color = "black";
+                if (currentVal === goal) {
+                    // Highlight the price
+                    el.style.backgroundColor = "#fac10c";
+                    el.style.color = "#000";
+                    el.style.fontWeight = "bold";
 
-                    // Try to find the "Buy" button nearby
-                    let buyBtn = el.closest('div')?.querySelector('button') || el.parentElement?.querySelector('.buy-btn');
-                    
-                    if (buyBtn && !buyBtn.innerText.includes('Target')) {
-                        buyBtn.style.background = "red";
+                    // Find the Buy button nearby (using the .van-button class)
+                    const parentContainer = el.closest('.div') || el.parentElement.parentElement;
+                    const buyBtn = parentContainer?.querySelector('button.van-button');
+
+                    if (buyBtn) {
+                        buyBtn.style.boxShadow = "0 0 15px 5px red";
+                        buyBtn.style.transform = "scale(1.05)";
                         buyBtn.scrollIntoView({behavior: "smooth", block: "center"});
                     }
                 }
             });
-        }, 500); 
+        }, 400); // Check every 400ms
     };
 
-    // Stop Logic
-    document.getElementById("stop").onclick = () => {
+    stopBtn.onclick = () => {
         running = false;
         clearInterval(interval);
-        console.log("Automation Stopped.");
+        startBtn.innerText = "START";
+        startBtn.style.opacity = "1";
+        alert("Automation Stopped");
     };
 })();
