@@ -1,59 +1,57 @@
-let running = false;
-let interval;
-let targetAmount = 100; // change this
+(function() {
+    let running = false;
+    let interval;
+    let targetAmount = 100;
 
-// Create UI panel
-const panel = document.createElement('div');
-panel.style = `
-position:fixed;
-top:100px;
-right:10px;
-z-index:9999;
-background:#000;
-color:#fff;
-padding:10px;
-border-radius:10px;
-font-size:14px;
-`;
+    // Create UI panel
+    const panel = document.createElement('div');
+    panel.style.cssText = 'position:fixed;top:100px;right:10px;z-index:9999;background:#000;color:#fff;padding:10px;border-radius:10px;font-size:14px;border:1px solid #444;';
+    
+    panel.innerHTML = `
+        <div style="margin-bottom:8px;">Target: ₹<input id="amt" type="number" value="100" style="width:60px;background:#222;color:#fff;border:1px solid #555;"></div>
+        <button id="start" style="background:green;color:white;cursor:pointer;">Start</button>
+        <button id="stop" style="background:red;color:white;cursor:pointer;">Stop</button>
+    `;
 
-panel.innerHTML = `
-<div>Target: ₹<input id="amt" value="100" style="width:60px"></div>
-<button id="start">Start</button>
-<button id="stop">Stop</button>
-`;
+    document.body.appendChild(panel);
 
-document.body.appendChild(panel);
+    // Start Logic
+    document.getElementById("start").onclick = () => {
+        targetAmount = document.getElementById("amt").value;
+        running = true;
+        console.log("Automation Started. Target:", targetAmount);
 
-// Start
-document.getElementById("start").onclick = () => {
-  targetAmount = document.getElementById("amt").value;
-  running = true;
+        interval = setInterval(() => {
+            if (!running) return;
 
-  interval = setInterval(() => {
-    if (!running) return;
+            // Search for elements that contain the price
+            // I've updated this to look for common price patterns
+            let elements = document.querySelectorAll('div, span, p, b');
 
-    let amounts = document.querySelectorAll(".amount");
+            elements.forEach(el => {
+                // Get text, remove currency symbols and commas
+                let text = el.innerText.replace(/[^\d]/g, '');
 
-    amounts.forEach(el => {
-      let text = el.innerText.replace(/[^\d]/g, '');
+                if (text === targetAmount && el.childNodes.length === 1) {
+                    el.style.background = "yellow";
+                    el.style.color = "black";
 
-      if (text == targetAmount) {
-        el.style.background = "yellow";
+                    // Try to find the "Buy" button nearby
+                    let buyBtn = el.closest('div')?.querySelector('button') || el.parentElement?.querySelector('.buy-btn');
+                    
+                    if (buyBtn && !buyBtn.innerText.includes('Target')) {
+                        buyBtn.style.background = "red";
+                        buyBtn.scrollIntoView({behavior: "smooth", block: "center"});
+                    }
+                }
+            });
+        }, 500); 
+    };
 
-        let buyBtn = el.closest("div")?.querySelector("button");
-
-        if (buyBtn) {
-          buyBtn.style.background = "red";
-          buyBtn.scrollIntoView({behavior:"smooth", block:"center"});
-        }
-      }
-    });
-
-  }, 300); // fast refresh
-};
-
-// Stop
-document.getElementById("stop").onclick = () => {
-  running = false;
-  clearInterval(interval);
-};
+    // Stop Logic
+    document.getElementById("stop").onclick = () => {
+        running = false;
+        clearInterval(interval);
+        console.log("Automation Stopped.");
+    };
+})();
