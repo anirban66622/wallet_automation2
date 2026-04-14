@@ -1,119 +1,70 @@
-// ============================================================
-//  ARB Observer — main.js
-//  Host this file on GitHub in your repo root
-// ============================================================
-
 (function () {
-  'use strict';
+  // ── Prevent duplicate injection ──────────────────────────
+  const old = document.getElementById('arb-auto-panel');
+  if (old) old.remove();
 
-  // Prevent duplicate injection
-  if (document.getElementById('arb-observer-ui')) return;
-
-  // ── SELECTORS (from DevTools inspection) ──────────────────
+  // ── SELECTORS (from your DevTools screenshots) ────────────
   const SEL = {
-    container : 'div.x-arb',
-    item      : 'div.item',
-    price     : 'div.mb6.x-row.x-row-middle.amount',
-    buyBtn    : 'button.van-button.x-btn',
+    item   : 'div.item',
+    price  : 'div.mb6.x-row.x-row-middle.amount',
+    buyBtn : 'button.van-button.x-btn',
   };
 
   // ── STATE ─────────────────────────────────────────────────
+  let running    = false;
   let observer   = null;
-  let isRunning  = false;
+  let interval   = null;
   let clickCount = 0;
 
-  // ── GUI ───────────────────────────────────────────────────
-  function createUI() {
-    const box = document.createElement('div');
-    box.id = 'arb-observer-ui';
-    box.innerHTML = `
-      <style>
-        #arb-observer-ui {
-          position: fixed; top: 16px; right: 16px; z-index: 2147483647;
-          background: #0f0f1a; color: #e0e0f0;
-          font-family: 'Courier New', monospace;
-          padding: 14px 16px; border-radius: 12px; width: 240px;
-          box-shadow: 0 6px 28px rgba(0,0,0,0.8);
-          border: 1px solid #FAC10C55;
-        }
-        #arb-observer-ui * { box-sizing: border-box; }
-        #arb-observer-ui h4 {
-          margin: 0 0 10px; font-size: 13px; color: #FAC10C;
-          letter-spacing: 1.5px; text-align: center; text-transform: uppercase;
-        }
-        #arb-observer-ui label { font-size: 10px; color: #777; display: block; margin-bottom: 3px; }
-        #arb-observer-ui input {
-          width: 100%; padding: 7px 10px;
-          background: #1a1a2e; border: 1px solid #FAC10C55;
-          color: #fff; border-radius: 7px; margin-bottom: 10px; font-size: 14px;
-          outline: none;
-        }
-        #arb-observer-ui input:focus { border-color: #FAC10C; }
-        .arb-row { display: flex; gap: 8px; margin-bottom: 8px; }
-        .arb-row button {
-          flex: 1; padding: 8px 0; border: none;
-          border-radius: 8px; cursor: pointer;
-          font-weight: bold; font-size: 12px; letter-spacing: 0.5px;
-          transition: opacity 0.2s;
-        }
-        .arb-row button:hover { opacity: 0.85; }
-        #arb-start { background: #FAC10C; color: #000; }
-        #arb-stop  { background: #e74c3c; color: #fff; }
-        #arb-status {
-          font-size: 11px; text-align: center;
-          padding: 5px 8px; border-radius: 6px;
-          background: #1a1a2e; color: #777;
-          margin-bottom: 8px; transition: color 0.3s;
-        }
-        #arb-log {
-          font-size: 9.5px; color: #555;
-          max-height: 70px; overflow-y: auto; line-height: 1.6;
-        }
-        #arb-log div { border-bottom: 1px solid #ffffff08; padding: 1px 0; }
-        #arb-drag-handle {
-          cursor: move; text-align: center;
-          font-size: 10px; color: #333; margin-bottom: 8px;
-          letter-spacing: 3px;
-        }
-      </style>
-      <div id="arb-drag-handle">• • •</div>
-      <h4>⚡ ARB Observer</h4>
-      <label>Target Amount (₹)</label>
-      <input id="arb-amount" type="number" placeholder="e.g. 100" min="1" />
-      <div class="arb-row">
-        <button id="arb-start">▶ Start</button>
-        <button id="arb-stop">■ Stop</button>
-      </div>
-      <div id="arb-status">● Idle</div>
-      <div id="arb-log"></div>
-    `;
-    document.body.appendChild(box);
+  // ── UI ────────────────────────────────────────────────────
+  const panel = document.createElement('div');
+  panel.id = 'arb-auto-panel';
+  panel.style.cssText = `
+    position: fixed !important;
+    top: 80px !important;
+    left: 10px !important;
+    width: 160px !important;
+    z-index: 2147483647 !important;
+    background: #000 !important;
+    color: #fff !important;
+    padding: 12px !important;
+    border: 2px solid #FAC10C !important;
+    border-radius: 10px !important;
+    font-family: monospace !important;
+  `;
 
-    document.getElementById('arb-start').onclick = startObserver;
-    document.getElementById('arb-stop').onclick  = stopObserver;
+  panel.innerHTML = `
+    <div style="font-size:13px;font-weight:bold;margin-bottom:8px;color:#FAC10C;text-align:center;">
+      ⚡ AUTO BUYER
+    </div>
+    <input
+      id="arb-target"
+      type="number"
+      placeholder="Amount ₹"
+      style="width:100%;background:#111;color:#fff;border:1px solid #FAC10C;
+             margin-bottom:8px;padding:6px;border-radius:5px;box-sizing:border-box;
+             font-size:14px;outline:none;"
+    />
+    <button id="arb-start"
+      style="width:100%;background:#28a745;color:#fff;border:none;
+             padding:8px;margin-bottom:5px;border-radius:5px;
+             font-weight:bold;cursor:pointer;font-size:13px;">
+      ▶ START
+    </button>
+    <button id="arb-stop"
+      style="width:100%;background:#dc3545;color:#fff;border:none;
+             padding:8px;border-radius:5px;font-weight:bold;
+             cursor:pointer;font-size:13px;">
+      ■ STOP
+    </button>
+    <div id="arb-status"
+      style="margin-top:8px;font-size:10px;color:#888;text-align:center;
+             min-height:16px;">
+      ● Idle
+    </div>
+  `;
 
-    makeDraggable(box, document.getElementById('arb-drag-handle'));
-  }
-
-  // ── DRAG SUPPORT ──────────────────────────────────────────
-  function makeDraggable(el, handle) {
-    let ox = 0, oy = 0, mx = 0, my = 0;
-    handle.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      ox = e.clientX; oy = e.clientY;
-      document.onmousemove = (e2) => {
-        mx = ox - e2.clientX; my = oy - e2.clientY;
-        ox = e2.clientX;      oy = e2.clientY;
-        el.style.top  = (el.offsetTop  - my) + 'px';
-        el.style.left = (el.offsetLeft - mx) + 'px';
-        el.style.right = 'auto';
-      };
-      document.onmouseup = () => {
-        document.onmousemove = null;
-        document.onmouseup   = null;
-      };
-    });
-  }
+  document.body.appendChild(panel);
 
   // ── HELPERS ───────────────────────────────────────────────
   function setStatus(msg, color = '#FAC10C') {
@@ -121,35 +72,31 @@
     if (el) { el.textContent = msg; el.style.color = color; }
   }
 
-  function addLog(msg) {
-    const log = document.getElementById('arb-log');
-    if (!log) return;
-    const d = document.createElement('div');
-    const t = new Date().toLocaleTimeString();
-    d.textContent = `[${t}] ${msg}`;
-    log.prepend(d);
-    while (log.children.length > 8) log.removeChild(log.lastChild);
-  }
-
-  // ── CORE SCAN ─────────────────────────────────────────────
-  function scanAndClick(targetAmount) {
+  // ── CORE: scan all items, click match ─────────────────────
+  function scanAndClick(target) {
     const items = document.querySelectorAll(SEL.item);
-
     for (const item of items) {
       const priceEl = item.querySelector(SEL.price);
       const buyBtn  = item.querySelector(SEL.buyBtn);
-
       if (!priceEl || !buyBtn) continue;
 
-      // Extract numeric value — strips ₹ sign, commas, spaces
-      const numeric = priceEl.textContent.replace(/[^\d.]/g, '').trim();
+      const val = priceEl.textContent.replace(/[^\d.]/g, '').trim();
 
-      if (numeric === targetAmount) {
-        buyBtn.click();
-        clickCount++;
-        const msg = `✔ Clicked ₹${numeric} (#${clickCount})`;
-        setStatus(msg, '#2ecc71');
-        addLog(msg);
+      if (val === target) {
+        // Flash highlight so you can see it fired
+        buyBtn.style.boxShadow = '0 0 12px 4px lime';
+        priceEl.style.background = 'yellow';
+        priceEl.style.color = 'black';
+
+        buyBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Click with tiny delay to let scroll settle
+        setTimeout(() => {
+          buyBtn.click();
+          clickCount++;
+          setStatus(`✔ Clicked #${clickCount} @ ₹${val}`, '#2ecc71');
+        }, 80);
+
         return true;
       }
     }
@@ -157,54 +104,63 @@
   }
 
   // ── START ─────────────────────────────────────────────────
-  function startObserver() {
-    const input = document.getElementById('arb-amount');
-    const targetAmount = input ? input.value.trim() : '';
-
-    if (!targetAmount || isNaN(Number(targetAmount))) {
-      setStatus('⚠ Enter a valid ₹ amount', '#e74c3c');
+  document.getElementById('arb-start').onclick = () => {
+    const target = document.getElementById('arb-target').value.trim();
+    if (!target || isNaN(Number(target))) {
+      setStatus('⚠ Enter amount first', '#e74c3c');
       return;
     }
 
-    if (isRunning) stopObserver(); // restart cleanly
+    // Clean stop before restart
+    if (running) stop();
 
-    isRunning  = true;
+    running    = true;
     clickCount = 0;
     setStatus('● Scanning…', '#FAC10C');
-    addLog(`Started — watching for ₹${targetAmount}`);
 
-    // Pick the tightest container available
-    const container = document.querySelector(SEL.container)
-                   || document.querySelector('div.container')
+    const startBtn = document.getElementById('arb-start');
+    startBtn.textContent = 'RUNNING…';
+    startBtn.style.background = '#555';
+
+    // 1. Immediate scan
+    scanAndClick(target);
+
+    // 2. MutationObserver — fires on DOM changes (fastest)
+    const container = document.querySelector('div.x-arb')
+                   || document.getElementById('app')
                    || document.body;
 
-    // Immediate scan — match may already be on screen
-    scanAndClick(targetAmount);
-
     observer = new MutationObserver((mutations) => {
-      if (!isRunning) return;
-      const changed = mutations.some(
-        m => m.addedNodes.length > 0 || m.type === 'characterData'
-      );
-      if (changed) scanAndClick(targetAmount);
+      if (!running) return;
+      if (mutations.some(m => m.addedNodes.length > 0 || m.type === 'characterData')) {
+        scanAndClick(target);
+      }
     });
 
     observer.observe(container, {
-      childList     : true,
-      subtree       : true,
-      characterData : true,
+      childList: true, subtree: true, characterData: true
     });
-  }
 
-  // ── STOP ──────────────────────────────────────────────────
-  function stopObserver() {
-    isRunning = false;
+    // 3. Interval fallback — catches anything MutationObserver misses
+    interval = setInterval(() => {
+      if (running) scanAndClick(target);
+    }, 300);
+  };
+
+  // ── STOP ─────────────────────────────────────────────────
+  function stop() {
+    running = false;
     if (observer) { observer.disconnect(); observer = null; }
+    if (interval) { clearInterval(interval); interval = null; }
+
+    const startBtn = document.getElementById('arb-start');
+    if (startBtn) {
+      startBtn.textContent = '▶ START';
+      startBtn.style.background = '#28a745';
+    }
     setStatus('■ Stopped', '#aaa');
-    addLog('Observer stopped.');
   }
 
-  // ── BOOT ──────────────────────────────────────────────────
-  createUI();
+  document.getElementById('arb-stop').onclick = stop;
 
-})(); // IIFE — no global pollution
+})();
