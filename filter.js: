@@ -1,75 +1,94 @@
 (function () {
-  // ── Prevent duplicate injection ──────────────────────────
-  const old = document.getElementById('arb-auto-panel');
-  if (old) old.remove();
+  'use strict';
 
-  // ── SELECTORS (from your DevTools screenshots) ────────────
+  // ── Prevent duplicate injection ──────────────────────────
+  if (document.getElementById('arb-auto-panel')) return;
+
+  // ── SELECTORS ────────────────────────────────────────────
   const SEL = {
     item   : 'div.item',
     price  : 'div.mb6.x-row.x-row-middle.amount',
     buyBtn : 'button.van-button.x-btn',
   };
 
-  // ── STATE ─────────────────────────────────────────────────
+  // ── STATE ────────────────────────────────────────────────
   let running    = false;
   let observer   = null;
   let interval   = null;
   let clickCount = 0;
 
-  // ── UI ────────────────────────────────────────────────────
+  // ── UI ───────────────────────────────────────────────────
   const panel = document.createElement('div');
   panel.id = 'arb-auto-panel';
-  panel.style.cssText = `
+  panel.setAttribute('style', `
     position: fixed !important;
-    top: 80px !important;
-    left: 10px !important;
-    width: 160px !important;
-    z-index: 2147483647 !important;
+    top: 100px !important;
+    right: 10px !important;
+    width: 200px !important;
+    z-index: 999999999 !important;
     background: #000 !important;
     color: #fff !important;
-    padding: 12px !important;
+    padding: 15px !important;
     border: 2px solid #FAC10C !important;
     border-radius: 10px !important;
     font-family: monospace !important;
-  `;
+    box-shadow: 0 0 20px rgba(250, 193, 12, 0.5) !important;
+  `);
 
   panel.innerHTML = `
-    <div style="font-size:13px;font-weight:bold;margin-bottom:8px;color:#FAC10C;text-align:center;">
+    <div style="font-size:14px;font-weight:bold;margin-bottom:10px;color:#FAC10C;text-align:center;letter-spacing:2px;">
       ⚡ AUTO BUYER
     </div>
     <input
       id="arb-target"
       type="number"
       placeholder="Amount ₹"
-      style="width:100%;background:#111;color:#fff;border:1px solid #FAC10C;
-             margin-bottom:8px;padding:6px;border-radius:5px;box-sizing:border-box;
-             font-size:14px;outline:none;"
+      style="width:100% !important;background:#111 !important;color:#fff !important;border:1px solid #FAC10C !important;
+             margin-bottom:10px !important;padding:8px !important;border-radius:5px !important;box-sizing:border-box !important;
+             font-size:14px !important;outline:none !important;"
     />
     <button id="arb-start"
-      style="width:100%;background:#28a745;color:#fff;border:none;
-             padding:8px;margin-bottom:5px;border-radius:5px;
-             font-weight:bold;cursor:pointer;font-size:13px;">
+      style="width:100% !important;background:#28a745 !important;color:#fff !important;border:none !important;
+             padding:10px !important;margin-bottom:8px !important;border-radius:5px !important;
+             font-weight:bold !important;cursor:pointer !important;font-size:13px !important;">
       ▶ START
     </button>
     <button id="arb-stop"
-      style="width:100%;background:#dc3545;color:#fff;border:none;
-             padding:8px;border-radius:5px;font-weight:bold;
-             cursor:pointer;font-size:13px;">
+      style="width:100% !important;background:#dc3545 !important;color:#fff !important;border:none !important;
+             padding:10px !important;margin-bottom:8px !important;border-radius:5px !important;font-weight:bold !important;
+             cursor:pointer !important;font-size:13px !important;">
       ■ STOP
     </button>
     <div id="arb-status"
-      style="margin-top:8px;font-size:10px;color:#888;text-align:center;
-             min-height:16px;">
+      style="margin-top:10px;font-size:11px;color:#888;text-align:center;
+             min-height:18px;padding:5px;background:#111;border-radius:4px;border:1px solid #333;">
       ● Idle
+    </div>
+    <div id="arb-log"
+      style="margin-top:8px;font-size:9px;color:#666;max-height:80px;overflow-y:auto;
+             background:#111;border:1px solid #333;border-radius:4px;padding:5px;">
     </div>
   `;
 
-  document.body.appendChild(panel);
-
-  // ── HELPERS ───────────────────────────────────────────────
+  // ── HELPERS ──────────────────────────────────────────────
   function setStatus(msg, color = '#FAC10C') {
     const el = document.getElementById('arb-status');
-    if (el) { el.textContent = msg; el.style.color = color; }
+    if (el) { 
+      el.textContent = msg; 
+      el.style.color = color; 
+    }
+  }
+
+  function addLog(msg) {
+    const log = document.getElementById('arb-log');
+    if (!log) return;
+    const d = document.createElement('div');
+    const t = new Date().toLocaleTimeString();
+    d.textContent = `[${t}] ${msg}`;
+    d.style.padding = '2px 0';
+    d.style.borderBottom = '1px solid #333';
+    log.prepend(d);
+    while (log.children.length > 6) log.removeChild(log.lastChild);
   }
 
   // ── CORE: scan all items, click match ─────────────────────
@@ -82,20 +101,23 @@
 
       const val = priceEl.textContent.replace(/[^\d.]/g, '').trim();
 
-      if (val === target) {
-        // Flash highlight so you can see it fired
-        buyBtn.style.boxShadow = '0 0 12px 4px lime';
-        priceEl.style.background = 'yellow';
-        priceEl.style.color = 'black';
+      // Fix: Convert to number for proper comparison
+      if (parseFloat(val) === parseFloat(target)) {
+        // Visual feedback
+        buyBtn.style.boxShadow = '0 0 15px 5px #00ff00';
+        priceEl.style.background = '#ffff00';
+        priceEl.style.color = '#000';
 
         buyBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-        // Click with tiny delay to let scroll settle
+        // Click with delay
         setTimeout(() => {
           buyBtn.click();
           clickCount++;
-          setStatus(`✔ Clicked #${clickCount} @ ₹${val}`, '#2ecc71');
-        }, 80);
+          const msg = `✔ Clicked #${clickCount} @ ₹${val}`;
+          setStatus(msg, '#2ecc71');
+          addLog(msg);
+        }, 100);
 
         return true;
       }
@@ -103,51 +125,62 @@
     return false;
   }
 
-  // ── START ─────────────────────────────────────────────────
-  document.getElementById('arb-start').onclick = () => {
-    const target = document.getElementById('arb-target').value.trim();
-    if (!target || isNaN(Number(target))) {
-      setStatus('⚠ Enter amount first', '#e74c3c');
-      return;
+  // ── Event Listeners ──────────────────────────────────────
+  function attachEventListeners() {
+    const startBtn = document.getElementById('arb-start');
+    const stopBtn = document.getElementById('arb-stop');
+
+    if (startBtn) {
+      startBtn.onclick = () => {
+        const target = document.getElementById('arb-target').value.trim();
+        if (!target || isNaN(Number(target))) {
+          setStatus('⚠ Enter amount', '#e74c3c');
+          addLog('Invalid amount entered');
+          return;
+        }
+
+        if (running) stop();
+
+        running    = true;
+        clickCount = 0;
+        setStatus('● Scanning…', '#FAC10C');
+        addLog(`Started — watching for ₹${target}`);
+
+        startBtn.textContent = 'RUNNING…';
+        startBtn.style.background = '#555';
+        startBtn.disabled = true;
+
+        // Immediate scan
+        scanAndClick(target);
+
+        // MutationObserver
+        const container = document.querySelector('div.x-arb')
+                       || document.getElementById('app')
+                       || document.body;
+
+        observer = new MutationObserver((mutations) => {
+          if (!running) return;
+          if (mutations.some(m => m.addedNodes.length > 0 || m.type === 'characterData')) {
+            scanAndClick(target);
+          }
+        });
+
+        observer.observe(container, {
+          childList: true, subtree: true, characterData: true
+        });
+
+        // Interval fallback
+        interval = setInterval(() => {
+          if (running) scanAndClick(target);
+        }, 250);
+      };
     }
 
-    // Clean stop before restart
-    if (running) stop();
+    if (stopBtn) {
+      stopBtn.onclick = stop;
+    }
+  }
 
-    running    = true;
-    clickCount = 0;
-    setStatus('● Scanning…', '#FAC10C');
-
-    const startBtn = document.getElementById('arb-start');
-    startBtn.textContent = 'RUNNING…';
-    startBtn.style.background = '#555';
-
-    // 1. Immediate scan
-    scanAndClick(target);
-
-    // 2. MutationObserver — fires on DOM changes (fastest)
-    const container = document.querySelector('div.x-arb')
-                   || document.getElementById('app')
-                   || document.body;
-
-    observer = new MutationObserver((mutations) => {
-      if (!running) return;
-      if (mutations.some(m => m.addedNodes.length > 0 || m.type === 'characterData')) {
-        scanAndClick(target);
-      }
-    });
-
-    observer.observe(container, {
-      childList: true, subtree: true, characterData: true
-    });
-
-    // 3. Interval fallback — catches anything MutationObserver misses
-    interval = setInterval(() => {
-      if (running) scanAndClick(target);
-    }, 300);
-  };
-
-  // ── STOP ─────────────────────────────────────────────────
   function stop() {
     running = false;
     if (observer) { observer.disconnect(); observer = null; }
@@ -157,10 +190,33 @@
     if (startBtn) {
       startBtn.textContent = '▶ START';
       startBtn.style.background = '#28a745';
+      startBtn.disabled = false;
     }
     setStatus('■ Stopped', '#aaa');
+    addLog('Observer stopped');
   }
 
-  document.getElementById('arb-stop').onclick = stop;
+  // ── Initialize ───────────────────────────────────────────
+  function initPanel() {
+    if (!document.body) {
+      setTimeout(initPanel, 50);
+      return;
+    }
+    try {
+      document.body.appendChild(panel);
+      attachEventListeners();
+      console.log('✅ ARB Auto Buyer loaded successfully!');
+      addLog('Panel loaded');
+    } catch (e) {
+      console.error('❌ Failed to load panel:', e);
+    }
+  }
+
+  // Wait for DOM ready or execute immediately
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPanel);
+  } else {
+    initPanel();
+  }
 
 })();
