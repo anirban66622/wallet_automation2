@@ -1,78 +1,52 @@
 (function() {
-    const oldPanel = document.getElementById('wallet-auto-panel');
-    if (oldPanel) oldPanel.remove();
-
-    // Attach to the very top of the body to ensure it's not hidden by containers
-    const container = document.body;
-
-    let running = false;
-    let interval;
+    const old = document.getElementById('ar-wallet-ui');
+    if (old) old.remove();
 
     const panel = document.createElement('div');
-    panel.id = 'wallet-auto-panel';
-    
-    // CHANGED: Using 'fixed' with a higher Z-index and centered position
-    panel.style.cssText = `
-        position: fixed !important;
-        top: 20% !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        width: 180px !important;
-        z-index: 9999999 !important;
-        background: #ffffff !important;
-        color: #000000 !important;
-        padding: 15px !important;
-        border: 3px solid #fac10c !important;
-        border-radius: 15px !important;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
-        display: block !important;
-        visibility: visible !important;
-    `;
-    
+    panel.id = 'ar-wallet-ui';
+    panel.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2147483647;background:#fff;padding:20px;border-radius:15px;box-shadow:0 0 20px rgba(0,0,0,0.2);width:280px;font-family:sans-serif;text-align:center;';
+
     panel.innerHTML = `
-        <div style="font-size:14px;font-weight:bold;margin-bottom:10px;text-align:center;color:#333;">AR Wallet</div>
-        <input id="targetAmt" type="number" value="214" style="width:100%;background:#f4f4f4;color:#000;border:1px solid #ccc;margin-bottom:10px;padding:8px;border-radius:5px;font-size:16px;">
-        <div style="display:flex;gap:5px;">
-            <button id="startAuto" style="flex:1;background:#2ecc71;color:white;border:none;padding:10px;border-radius:8px;font-weight:bold;">Start</button>
-            <button id="stopAuto" style="flex:1;background:#e74c3c;color:white;border:none;padding:10px;border-radius:8px;font-weight:bold;">Stop</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+            <span style="font-weight:bold;font-size:18px;">AR Wallet</span>
+            <div style="width:12px;height:12px;background:#ff4d4d;border-radius:50%;"></div>
         </div>
-        <div id="statusMsg" style="font-size:10px;text-align:center;margin-top:5px;color:red;">Waiting...</div>
+        <input id="targetAmt" type="number" value="1000" style="width:100%;padding:12px;border:1px solid #ccc;border-radius:8px;font-size:18px;margin-bottom:15px;box-sizing:border-box;">
+        <div style="display:flex;gap:10px;">
+            <button id="btnStart" style="flex:1;background:#2ecc71;color:white;border:none;padding:12px;border-radius:10px;font-weight:bold;font-size:16px;">Start</button>
+            <button id="btnStop" style="flex:1;background:#e74c3c;color:white;border:none;padding:12px;border-radius:10px;font-weight:bold;font-size:16px;">Stop</button>
+        </div>
+        <div id="statusLog" style="margin-top:10px;font-size:12px;color:#666;">Ready</div>
     `;
 
-    container.appendChild(panel);
+    document.body.appendChild(panel);
 
-    const startBtn = document.getElementById("startAuto");
-    const stopBtn = document.getElementById("stopAuto");
-    const statusMsg = document.getElementById("statusMsg");
+    let active = false;
+    let timer;
 
-    startBtn.onclick = () => {
-        const goal = document.getElementById("targetAmt").value;
-        running = true;
-        statusMsg.innerText = "Searching for ₹" + goal;
-        statusMsg.style.color = "green";
+    document.getElementById('btnStart').onclick = () => {
+        active = true;
+        const val = document.getElementById('targetAmt').value;
+        document.getElementById('statusLog').innerText = "Scanning for ₹" + val;
+        document.getElementById('btnStart').style.opacity = "0.5";
         
-        interval = setInterval(() => {
-            if (!running) return;
+        timer = setInterval(() => {
+            if(!active) return;
             const prices = document.querySelectorAll('.amount');
-            prices.forEach(el => {
-                let val = el.innerText.replace(/[^\d]/g, '');
-                if (val === goal && val !== "") {
-                    el.style.background = "yellow";
-                    const row = el.closest('.x-row') || el.parentElement.parentElement;
-                    const buyBtn = row?.querySelector('button.van-button');
-                    if (buyBtn) {
-                        buyBtn.style.outline = "5px solid red";
-                        buyBtn.scrollIntoView({behavior: "smooth", block: "center"});
-                    }
+            prices.forEach(p => {
+                if(p.innerText.includes(val)) {
+                    p.style.background = "yellow";
+                    const btn = p.closest('.div')?.querySelector('.van-button') || document.querySelector('.van-button--primary');
+                    if(btn) btn.click(); 
                 }
             });
         }, 500);
     };
 
-    stopBtn.onclick = () => {
-        running = false;
-        clearInterval(interval);
-        statusMsg.innerText = "Stopped";
-        statusMsg.style.color = "red";
+    document.getElementById('btnStop').onclick = () => {
+        active = false;
+        clearInterval(timer);
+        document.getElementById('btnStart').style.opacity = "1";
+        document.getElementById('statusLog').innerText = "Stopped";
     };
 })();
